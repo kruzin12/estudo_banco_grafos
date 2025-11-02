@@ -53,18 +53,6 @@ module.exports = async function (req, res) {
     const rec = result.records[0];
     const peso = rec.get('peso');
 
-    //Caso não haja relação direta
-    if (peso === null || peso === undefined) {
-      res.status(200).json({
-        acertou: false,
-        palavra,
-        peso: 0,
-        nivel: 10,
-        mensagem: 'Sem relação direta com a palavra secreta.'
-      });
-      return;
-    }
-
     //Acerto exato
     if (palavra === alvo) {
       res.status(200).json({
@@ -73,6 +61,18 @@ module.exports = async function (req, res) {
         peso: 1.0,
         nivel: 1,
         mensagem: 'Parabéns! Você acertou a palavra.'
+      });
+      return;
+    }
+
+    //Caso não haja relação direta
+    if (peso === null || peso === undefined) {
+      res.status(200).json({
+        acertou: false,
+        palavra,
+        peso: 0,
+        nivel: 10,
+        mensagem: 'Sem relação direta com a palavra secreta.'
       });
       return;
     }
