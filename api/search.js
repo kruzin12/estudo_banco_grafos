@@ -19,6 +19,13 @@ function cosine(a, b) {
   return dot / (Math.sqrt(na) * Math.sqrt(nb));
 }
 
+//Calcular valor do peso
+function calcularNivel(peso) {
+  const K = 10;
+  const nivel = 1 + Math.round((1 - peso) * K);
+  return nivel < 1 ? 1 : nivel;
+}
+
 module.exports = async function (req, res) {
   if (req.method !== 'GET') {
     res.status(405).json({ message: 'Método não permitido' });
@@ -69,6 +76,9 @@ module.exports = async function (req, res) {
 
     //Calcular similaridade
     const peso = cosine(embA, embB);
+
+    //Calcular valor do peso para usuario
+    const nivel = calcularNivel(peso);
 
     if (palavra === alvo) {
       res.status(200).json({
