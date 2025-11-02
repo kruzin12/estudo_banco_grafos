@@ -7,16 +7,10 @@ const driver = neo4j.driver(
   { disableLosslessIntegers: true }
 );
 
-function cosine(a, b) {
-  if (!a || !b || a.length !== b.length) return -1;
-  let dot = 0, na = 0, nb = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    na += a[i] * a[i];
-    nb += b[i] * b[i];
-  }
-  if (na === 0 || nb === 0) return 0;
-  return dot / (Math.sqrt(na) * Math.sqrt(nb));
+function calcularNivel(peso) {
+  const K = 10;
+  const nivel = 1 + Math.round((1 - peso) * K);
+  return nivel < 1 ? 1 : nivel;
 }
 
 module.exports = async function (req, res) {
@@ -41,7 +35,7 @@ module.exports = async function (req, res) {
   const session = driver.session({ database: process.env.NEO4J_DATABASE || 'neo4j' });
 
   try {
-    //Buscar embeddings das duas palavras
+    //Busca o peso da relação entre as duas palavras (em qualquer direção)
     const query = `
       MATCH (a:Palavra) WHERE toLower(a.nome) = $palavra
       MATCH (b:Palavra) WHERE toLower(b.nome) = $alvo
@@ -50,41 +44,47 @@ module.exports = async function (req, res) {
     `;
     const result = await session.run(query, { palavra, alvo });
 
+    //Se nenhuma correspondência for encontrada
     if (result.records.length === 0) {
       res.status(404).json({ message: `Palavra "${palavra}" não encontrada.` });
       return;
     }
 
     const rec = result.records[0];
-    const embA = rec.get('embA');
-    const embB = rec.get('embB');
+    const peso = rec.get('peso');
 
-    if (!embA) {
-      res.status(404).json({ message: `A palavra "${palavra}" não foi encontrada no banco.` });
+    //Caso não haja relação direta
+    if (peso === null || peso === undefined) {
+      res.status(200).json({
+        acertou: false,
+        palavra,
+        peso: 0,
+        nivel: 10,
+        mensagem: 'Sem relação direta com a palavra secreta.'
+      });
       return;
     }
-    if (!embB) {
-      res.status(500).json({ message: 'A palavra não está cadastrada no banco.' });
-      return;
-    }
 
-    //Calcular similaridade
-    const peso = cosine(embA, embB);
-
+    //Acerto exato
     if (palavra === alvo) {
       res.status(200).json({
         acertou: true,
         palavra,
         peso: 1.0,
+        nivel: 1,
         mensagem: 'Parabéns! Você acertou a palavra.'
       });
-    } else {
-      res.status(200).json({
-        acertou: false,
-        palavra,
-        peso: Number(peso.toFixed(3))
-      });
+      return;
     }
+
+    //Caso haja relação com peso
+    const nivel = calcularNivel(peso);
+    res.status(200).json({
+      acertou: false,
+      palavra,
+      peso: Number(peso.toFixed(3))
+    });
+
   } catch (err) {
     console.error('Erro /api/search:', err);
     res.status(500).json({ message: 'Erro interno ao buscar no Neo4j.' });
