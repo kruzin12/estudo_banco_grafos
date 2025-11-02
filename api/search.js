@@ -81,8 +81,7 @@ module.exports = async function (req, res) {
       res.status(200).json({
         acertou: false,
         palavra,
-        peso: Number(peso.toFixed(6)),
-        mensagem: 'Tente novamente.'
+        peso: Number(peso.toFixed(6))
       });
     }
   } catch (err) {
