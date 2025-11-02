@@ -1,23 +1,10 @@
-// api/search.js
+// /api/search.js
 const neo4j = require('neo4j-driver');
 
-// Ler variáveis de ambiente (defina no Vercel)
-const {
-  NEO4J_URI,
-  NEO4J_USERNAME,
-  NEO4J_PASSWORD,
-  NEO4J_DATABASE
-} = process.env;
-
-if (!NEO4J_URI || !NEO4J_USERNAME || !NEO4J_PASSWORD) {
-  // se estiver em ambiente de build sem vars, não falha aqui; falhará em runtime com mensagem útil
-  console.warn('AVISO: variáveis de ambiente do Neo4j não configuradas.');
-}
-
 const driver = neo4j.driver(
-  NEO4J_URI,
-  neo4j.auth.basic(NEO4J_USERNAME, NEO4J_PASSWORD),
-  { disableLosslessIntegers: true } // para que números venham como JS number
+  process.env.NEO4J_URI,
+  neo4j.auth.basic(process.env.NEO4J_USERNAME, process.env.NEO4J_PASSWORD),
+  { disableLosslessIntegers: true }
 );
 
 function cosine(a, b) {
@@ -33,86 +20,75 @@ function cosine(a, b) {
 }
 
 module.exports = async function (req, res) {
+  if (req.method !== 'GET') {
+    res.status(405).json({ message: 'Método não permitido' });
+    return;
+  }
+
+  const palavra = (req.query.palavra || '').trim().toLowerCase();
+  const alvo = (process.env.PALAVRA_SECRETA || '').trim().toLowerCase();
+
+  if (!palavra) {
+    res.status(400).json({ message: 'Informe uma palavra.' });
+    return;
+  }
+
+  if (!alvo) {
+    res.status(500).json({ message: 'Nenhuma palavra secreta definida.' });
+    return;
+  }
+
+  const session = driver.session({ database: process.env.NEO4J_DATABASE || 'neo4j' });
+
   try {
-    if (req.method !== 'GET') {
-      res.status(405).json({ message: 'Método não permitido' });
-      return;
-    }
-
-    const palavra = (req.query.palavra || '').trim();
-    if (!palavra) {
-      res.status(400).json({ message: 'Parâmetro "palavra" é obrigatório.' });
-      return;
-    }
-
-    const session = driver.session({ database: NEO4J_DATABASE || undefined });
-
-    // 1) Tentar obter nós e relações SIMILAR (com peso salvo)
-    const q1 = `
-      MATCH (n:Palavra {nome: $nome})
-      OPTIONAL MATCH (n)-[r:SIMILAR]->(m:Palavra)
-      RETURN n.embedding AS emb, collect({nome: m.nome, peso: r.peso}) AS edges
+    //Buscar embeddings das duas palavras
+    const query = `
+      MATCH (a:Palavra) WHERE toLower(a.nome) = $palavra
+      OPTIONAL MATCH (b:Palavra) WHERE toLower(b.nome) = $alvo
+      RETURN a.embedding AS embA, b.embedding AS embB
     `;
-    const result = await session.run(q1, { nome: palavra });
+    const result = await session.run(query, { palavra, alvo });
 
     if (result.records.length === 0) {
-      await session.close();
-      res.status(404).json({ message: `Palavra "${palavra}" não encontrada no banco.` });
+      res.status(404).json({ message: `Palavra "${palavra}" não encontrada.` });
       return;
     }
 
     const rec = result.records[0];
-    const emb = rec.get('emb') || null;
-    const edges = rec.get('edges') || [];
+    const embA = rec.get('embA');
+    const embB = rec.get('embB');
 
-    let results = [];
-
-    // Filtrar edges que têm nome (pode haver nulls na collection)
-    const validEdges = edges.filter(e => e && e.nome).map(e => ({ nome: e.nome, peso: Number(e.peso) || 0 }));
-
-    if (validEdges.length > 0) {
-      // se já há arestas com peso, ordenar e retornar
-      validEdges.sort((a,b)=>b.peso - a.peso);
-      results = validEdges.slice(0, 50);
-      await session.close();
-      res.status(200).json({ source: 'relations', results });
+    if (!embA) {
+      res.status(404).json({ message: `A palavra "${palavra}" não foi encontrada no banco.` });
+      return;
+    }
+    if (!embB) {
+      res.status(500).json({ message: 'A palavra não está cadastrada no banco.' });
       return;
     }
 
-    // 2) Se não houver arestas, usar embeddings para calcular similaridade (no servidor).
-    if (!emb) {
-      await session.close();
-      res.status(404).json({ message: `Palavra "${palavra}" existe, mas não possui embedding armazenado.` });
-      return;
+    //Calcular similaridade
+    const peso = cosine(embA, embB);
+
+    if (palavra === alvo) {
+      res.status(200).json({
+        acertou: true,
+        palavra,
+        peso: 1.0,
+        mensagem: 'Parabéns! Você acertou a palavra.'
+      });
+    } else {
+      res.status(200).json({
+        acertou: false,
+        palavra,
+        peso: Number(peso.toFixed(6)),
+        mensagem: 'Tente novamente.'
+      });
     }
-
-    // Buscar embeddings dos outros nós (limitar para evitar cargas muito grandes)
-    // Ajuste o LIMIT conforme sua base (aqui usamos 5000 para segurança)
-    const q2 = `
-      MATCH (m:Palavra)
-      WHERE m.nome <> $nome AND exists(m.embedding)
-      RETURN m.nome AS nome, m.embedding AS emb
-      LIMIT 5000
-    `;
-    const all = await session.run(q2, { nome: palavra });
-
-    const candidates = all.records.map(r => {
-      return { nome: r.get('nome'), emb: r.get('emb') };
-    });
-
-    // Calcular cosine para cada candidato
-    const scores = candidates.map(c => {
-      const s = cosine(emb, c.emb);
-      return { nome: c.nome, peso: s };
-    });
-
-    scores.sort((a,b)=>b.peso - a.peso);
-    results = scores.slice(0, 50);
-
-    await session.close();
-    res.status(200).json({ source: 'computed', results });
   } catch (err) {
-    console.error('Erro no API /api/search:', err);
-    res.status(500).json({ message: 'Erro interno ao buscar dados.' });
+    console.error('Erro /api/search:', err);
+    res.status(500).json({ message: 'Erro interno ao buscar no Neo4j.' });
+  } finally {
+    await session.close();
   }
 };

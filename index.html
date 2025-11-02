@@ -13,13 +13,13 @@
 <body>
   <div class="container text-center py-5">
     <h1 class="mb-3">Quase Lá</h1>
-    <p class="text-muted mb-4">Adivinhe a palavra.</p>
+    <p class="text-muted mb-4">Adivinhe a palavra secreta.</p>
 
     <form id="searchForm" class="d-flex justify-content-center mb-3" style="gap:10px;">
-      <input id="wordInput" class="form-control w-50" placeholder="Insira aqui seu palpite..." required>
+      <input id="wordInput" class="form-control w-50" placeholder="Insira seu palpite..." required>
     </form>
 
-    <div id="errorAlert" class="text-danger mb-3"></div>
+    <div id="message" class="mb-3"></div>
     <div id="loading" class="text-muted mb-3 d-none">Processando...</div>
 
     <div id="results" class="mt-4"></div>
@@ -29,41 +29,41 @@
     const form = document.getElementById('searchForm');
     const input = document.getElementById('wordInput');
     const results = document.getElementById('results');
-    const errorAlert = document.getElementById('errorAlert');
+    const message = document.getElementById('message');
     const loadingEl = document.getElementById('loading');
 
     function setLoading(on) { loadingEl.classList.toggle('d-none', !on); }
-    function showError(msg) { errorAlert.textContent = msg; }
-    function clearError() { errorAlert.textContent = ''; }
 
     async function searchWord(word) {
       const resp = await fetch('/api/search?palavra=' + encodeURIComponent(word));
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.message || `Erro ${resp.status}`);
-      }
       const data = await resp.json();
-      return data.results && data.results.length ? data.results[0] : null;
+      if (!resp.ok) throw new Error(data.message || `Erro ${resp.status}`);
+      return data;
     }
 
     form.addEventListener('submit', async e => {
       e.preventDefault();
-      clearError();
+      message.textContent = '';
       const word = input.value.trim();
       if (!word) return;
       setLoading(true);
       try {
         const result = await searchWord(word);
-        if (!result) {
-          showError('Nenhum resultado encontrado.');
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.textContent = `${result.palavra} - Peso: ${Number(result.peso).toFixed(4)}`;
+        results.prepend(div);
+
+        if (result.acertou) {
+          message.textContent = result.mensagem;
+          message.className = 'text-success fw-bold';
         } else {
-          const div = document.createElement('div');
-          div.className = 'item';
-          div.textContent = `${result.nome} — peso: ${Number(result.peso).toFixed(4)}`;
-          results.prepend(div); // adiciona no topo
+          message.textContent = result.mensagem;
+          message.className = 'text-danger fw-bold';
         }
       } catch (err) {
-        showError(err.message);
+        message.textContent = err.message;
+        message.className = 'text-danger';
       } finally {
         setLoading(false);
         input.value = '';
