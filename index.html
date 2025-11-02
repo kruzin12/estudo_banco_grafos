@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Quase Lá</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<<<<<<< HEAD
   <style>
     body { background-color: #f8f9fa; }
     #results .item { color: #6c757d; font-size: 1.1rem; }
@@ -25,50 +24,11 @@
     <div id="loading" class="text-muted mb-3 d-none">Processando...</div>
 
     <div id="results" class="mt-4"></div>
-=======
-</head>
-<body>
-  <div class="container py-5">
-    <h1 class="mb-4">Quase Lá</h1>
-
-    <div class="card mb-4">
-      <div class="card-body">
-        <form id="searchForm" class="row g-3">
-          <div class="col-md-8">
-            <label for="wordInput" class="form-label">Digite a palavra</label>
-            <input type="text" class="form-control" id="wordInput" placeholder="ex: professor" required>
-          </div>
-          <div class="col-md-4 d-flex align-items-end">
-            <button type="submit" class="btn btn-primary w-100">Buscar</button>
-          </div>
-        </form>
-
-        <div id="errorAlert" class="alert alert-danger mt-3 d-none" role="alert"></div>
-        <div id="loading" class="mt-3 d-none">Processando...</div>
-      </div>
-    </div>
-
-    <div class="card mb-4">
-      <div class="card-body">
-        <h5 class="card-title">Resultados</h5>
-        <div id="results" class="list-group"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-body">
-        <h5 class="card-title">Histórico (últimas buscas)</h5>
-        <div id="history" class="list-group"></div>
-        <button id="clearHistory" class="btn btn-outline-secondary btn-sm mt-3">Limpar histórico</button>
-      </div>
-    </div>
->>>>>>> cf73459aae6dec6ffec462bf0ed07e9c596abed4
   </div>
 
   <script>
     const form = document.getElementById('searchForm');
     const input = document.getElementById('wordInput');
-<<<<<<< HEAD
     const results = document.getElementById('results');
     const errorAlert = document.getElementById('errorAlert');
     const loadingEl = document.getElementById('loading');
@@ -110,115 +70,6 @@
         input.value = '';
       }
     });
-=======
-    const resultsEl = document.getElementById('results');
-    const errorAlert = document.getElementById('errorAlert');
-    const loadingEl = document.getElementById('loading');
-    const historyEl = document.getElementById('history');
-    const clearBtn = document.getElementById('clearHistory');
-
-    function showError(msg) {
-      errorAlert.textContent = msg;
-      errorAlert.classList.remove('d-none');
-    }
-    function hideError() {
-      errorAlert.classList.add('d-none');
-      errorAlert.textContent = '';
-    }
-
-    function setLoading(on) {
-      loadingEl.classList.toggle('d-none', !on);
-    }
-
-    function renderResults(list) {
-      resultsEl.innerHTML = '';
-      if (!list || list.length === 0) {
-        resultsEl.innerHTML = '<div class="text-muted">Nenhum resultado.</div>';
-        return;
-      }
-      list.forEach(item => {
-        const el = document.createElement('div');
-        el.className = 'list-group-item';
-        // Mostrar palavra e peso com 4 casas
-        el.innerHTML = '<div class="d-flex w-100 justify-content-between">' +
-                       `<h6 class="mb-1">${item.nome}</h6>` +
-                       `<small>peso: ${Number(item.peso).toFixed(4)}</small>` +
-                       '</div>';
-        resultsEl.appendChild(el);
-      });
-    }
-
-    function saveHistory(query, list) {
-      let hist = JSON.parse(localStorage.getItem('quase_la_history') || '[]');
-      hist.unshift({
-        when: new Date().toISOString(),
-        query,
-        results: list.slice(0, 10)
-      });
-      hist = hist.slice(0, 50); // manter até 50 itens
-      localStorage.setItem('quase_la_history', JSON.stringify(hist));
-      renderHistory();
-    }
-
-    function renderHistory() {
-      const hist = JSON.parse(localStorage.getItem('quase_la_history') || '[]');
-      historyEl.innerHTML = '';
-      if (hist.length === 0) {
-        historyEl.innerHTML = '<div class="text-muted">Sem histórico.</div>';
-        return;
-      }
-      hist.forEach(entry => {
-        const it = document.createElement('div');
-        it.className = 'list-group-item';
-        const time = new Date(entry.when).toLocaleString();
-        it.innerHTML = `<div class="fw-bold">${entry.query}</div><div class="text-muted small">${time}</div>`;
-        // anexar sub-lista com top3 resultados
-        const sub = document.createElement('div');
-        sub.className = 'mt-2';
-        entry.results.slice(0,3).forEach(r=>{
-          const rdiv = document.createElement('div');
-          rdiv.className = 'small';
-          rdiv.textContent = `${r.nome} — peso: ${Number(r.peso).toFixed(4)}`;
-          sub.appendChild(rdiv);
-        });
-        it.appendChild(sub);
-        historyEl.appendChild(it);
-      });
-    }
-
-    clearBtn.addEventListener('click', ()=> {
-      localStorage.removeItem('quase_la_history');
-      renderHistory();
-    });
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      hideError();
-      const palavra = input.value.trim();
-      if (!palavra) return showError('Informe uma palavra.');
-
-      setLoading(true);
-      try {
-        const resp = await fetch('/api/search?palavra=' + encodeURIComponent(palavra));
-        if (!resp.ok) {
-          const err = await resp.json().catch(()=>({message:'Erro desconhecido'}));
-          showError(err.message || 'Erro no servidor.');
-          setLoading(false);
-          return;
-        }
-        const data = await resp.json();
-        renderResults(data.results);
-        saveHistory(palavra, data.results);
-      } catch (err) {
-        showError('Falha ao conectar com o servidor.');
-      } finally {
-        setLoading(false);
-      }
-    });
-
-    // inicializa histórico
-    renderHistory();
->>>>>>> cf73459aae6dec6ffec462bf0ed07e9c596abed4
   </script>
 </body>
 </html>
