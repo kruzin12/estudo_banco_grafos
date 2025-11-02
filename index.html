@@ -51,7 +51,7 @@
         const result = await searchWord(word);
         const div = document.createElement('div');
         div.className = 'item';
-        div.textContent = `${result.palavra} — ${result.nivel}`;
+        div.textContent = `${result.palavra} — ${result.peso}`;
         results.prepend(div);
 
         if (result.acertou) {
