@@ -38,7 +38,7 @@
     function clearError() { errorAlert.textContent = ''; }
 
     async function searchWord(word) {
-      const resp = await fetch('/api/search?palavra=' + encodeURIComponent(word));
+      const resp = await fetch('/search?palavra=' + encodeURIComponent(word));
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
         throw new Error(err.message || `Erro ${resp.status}`);
