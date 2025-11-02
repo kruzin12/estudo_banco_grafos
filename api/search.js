@@ -81,7 +81,7 @@ module.exports = async function (req, res) {
       res.status(200).json({
         acertou: false,
         palavra,
-        peso: Number(peso.toFixed(2))
+        peso: Number(peso.toFixed(3))
       });
     }
   } catch (err) {
