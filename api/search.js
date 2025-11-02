@@ -44,8 +44,9 @@ module.exports = async function (req, res) {
     //Buscar embeddings das duas palavras
     const query = `
       MATCH (a:Palavra) WHERE toLower(a.nome) = $palavra
-      OPTIONAL MATCH (b:Palavra) WHERE toLower(b.nome) = $alvo
-      RETURN a.embedding AS embA, b.embedding AS embB
+      MATCH (b:Palavra) WHERE toLower(b.nome) = $alvo
+      OPTIONAL MATCH (a)-[r:SIMILAR]-(b)
+      RETURN r.peso AS peso
     `;
     const result = await session.run(query, { palavra, alvo });
 
